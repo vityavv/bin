@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Bin - {{.Name}}</title>
+	</head>
+	<body>
+		<form action="/logout" method="POST">
+			<button type="submit">Log Out</button>
+		</form>
+		<h1>Bin</h1>
+		<h2><input id="title">{{.Name}}</h2>
+		<textarea>{{.Contents}}</textarea>
+	</body>
+</html>
