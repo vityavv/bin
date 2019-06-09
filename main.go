@@ -27,12 +27,15 @@ func executeTemplate(w http.ResponseWriter, templ string, content interface{}) {
 }
 
 func main() {
+	DBinit()
+
 	key, err := ioutil.ReadFile("key")
 	if err != nil {log.Fatal(err)}
 	sessionStore = sessions.NewFilesystemStore("", key)
 
 	http.HandleFunc("/login", login)
 	http.HandleFunc("/logout", logout)
+	http.HandleFunc("/newUser", newUser)
 	//http.HandleFunc("/new/", newFile)
 	http.HandleFunc("/", mainHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
@@ -41,9 +44,7 @@ func main() {
 func mainHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/" || r.URL.Path == "/index" {
 		username, err := authUser(w, r)
-		if err != nil {
-			return
-		}
+		if err != nil {return}
 		if username == "" {
 			executeTemplate(w, "index.html", struct{Logged bool}{false})
 			return
@@ -53,6 +54,41 @@ func mainHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.NotFound(w, r)
+}
+
+func newUser(w http.ResponseWriter, r *http.Request) {
+	username, err := authUser(w, r)
+	if err != nil {return}
+	if username != "" {
+		http.Redirect(w, r, "/", http.StatusFound)
+	}
+	switch r.Method {
+	case "GET":
+		executeTemplate(w, "newUser.html", "")
+	case "POST":
+		if r.FormValue("username") == "" || r.FormValue("password") == "" || r.FormValue("password2") == "" {
+			http.Error(w, "You are missing one of the fields!", http.StatusBadRequest)
+			return
+		}
+		if r.FormValue("password") != r.FormValue("password2") {
+			http.Error(w, "The passwords do not match!", http.StatusBadRequest)
+			return
+		}
+		err := DBcreateUser(r.FormValue("username"), r.FormValue("password"))
+		if err != nil {
+			http.Error(w, "Error: " + err.Error(), http.StatusInternalServerError)
+			return
+		}
+		session, err := sessionStore.Get(r, "user")
+		if err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		session.Values["username"] = r.FormValue("username")
+		session.Values["password"] = r.FormValue("password")
+		session.Save(r, w)
+		http.Redirect(w, r, "/", http.StatusFound)
+	}
 }
 
 func logout(w http.ResponseWriter, r *http.Request) {
@@ -85,8 +121,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Either the username or the password is missing", http.StatusBadRequest)
 		return
 	}
-	//loggedin, err := DBlogIn(r.FormValue("username"), r.FormValue("password"))
-	loggedin := true //TODO
+	loggedin, err := DBlogIn(r.FormValue("username"), r.FormValue("password"))
 	if err != nil {
 		http.Error(w, "Error: " + err.Error(), http.StatusInternalServerError)
 		return
@@ -118,9 +153,7 @@ func authUser(w http.ResponseWriter, r *http.Request) (string, error) { // usern
 		return "", nil
 	}
 	username, password := interface_username.(string), interface_password.(string) //TODO: type switch + error
-	log.Println(password)
-	//loggedIn, err := DBlogIn(username, password)
-	loggedIn := true //TODO
+	loggedIn, err := DBlogIn(username, password)
 	if err != nil {
 		http.Error(w, "Error logging in", http.StatusInternalServerError)
 		return "", err
