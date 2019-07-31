@@ -6,6 +6,8 @@ import (
 	"github.com/gorilla/sessions"
 	"io/ioutil"
 	"log"
+	"strings"
+	"path"
 )
 
 type Item struct {
@@ -26,6 +28,8 @@ func executeTemplate(w http.ResponseWriter, templ string, content interface{}) {
 	}
 }
 
+var FILES Files
+
 func main() {
 	DBinit()
 
@@ -33,10 +37,16 @@ func main() {
 	if err != nil {log.Fatal(err)}
 	sessionStore = sessions.NewFilesystemStore("", key)
 
+	FILES = &FSFiles{}
+	FILES.Init("./files")
+
 	http.HandleFunc("/login", login)
 	http.HandleFunc("/logout", logout)
 	http.HandleFunc("/newUser", newUser)
-	//http.HandleFunc("/new/", newFile)
+
+	http.HandleFunc("/new/", newFile)
+	http.HandleFunc("/newFolder/", newFolder)
+
 	http.HandleFunc("/", mainHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
@@ -56,6 +66,7 @@ func mainHandler(w http.ResponseWriter, r *http.Request) {
 	http.NotFound(w, r)
 }
 
+// User Methods: {{{
 func newUser(w http.ResponseWriter, r *http.Request) {
 	username, err := authUser(w, r)
 	if err != nil {return}
@@ -87,6 +98,10 @@ func newUser(w http.ResponseWriter, r *http.Request) {
 		session.Values["username"] = r.FormValue("username")
 		session.Values["password"] = r.FormValue("password")
 		session.Save(r, w)
+		err = FILES.NewUser(r.FormValue("username"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 		http.Redirect(w, r, "/", http.StatusFound)
 	}
 }
@@ -163,3 +178,86 @@ func authUser(w http.ResponseWriter, r *http.Request) (string, error) { // usern
 	}
 	return username, nil
 }
+// }}}
+
+// File Methods: {{{
+func newFile(w http.ResponseWriter, r *http.Request) {
+	owner, err := authUser(w, r)
+	if err != nil {
+		return
+	}
+	var name string
+	if len(r.URL.Path) <= len("/new/") {
+		name = "Untitled"
+	} else {
+		name = r.URL.Path[len("/new/"):]
+		exists, err := FILES.Get(owner, name)
+		if err == nil {
+			if exists.Filetype == FOLDER {
+				name = name + "/Untitled"
+			} else {
+				http.Error(w, "File already exists!", http.StatusBadRequest)
+				return
+			}
+		}
+		valid, errStr := validate(path.Base(name))
+		if !valid {
+			http.Error(w, errStr, http.StatusBadRequest)
+		}
+	}
+	file, err := FILES.New(owner, name)
+	if err != nil {
+		//change so that it sees what the error is & acts on that (w/ type switch?)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/file/" + file.Path, http.StatusFound)
+}
+func newFolder(w http.ResponseWriter, r *http.Request) {
+	owner, err := authUser(w, r)
+	if err != nil {
+		return
+	}
+	var name string
+	if len(r.URL.Path) <= len("/newFolder/") {
+		name = "Untitled"
+	} else {
+		name = r.URL.Path[len("/newFolder/"):]
+		exists, err := FILES.Get(owner, name)
+		if err == nil {
+			if exists.Filetype == FOLDER {
+				name = name + "/Untitled"
+			} else {
+				http.Error(w, "File already exists!", http.StatusBadRequest)
+				return
+			}
+		}
+		valid, errStr := validate(path.Base(name))
+		if !valid {
+			http.Error(w, errStr, http.StatusBadRequest)
+		}
+	}
+	folder, err := FILES.NewFolder(owner, string(name))
+	if err != nil {
+		//change so that it sees what the error is & acts on that (w/ type switch?)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/file/" + folder.Path, http.StatusFound)
+}
+//consider changing to just string & chekcing if it is empty
+func validate(name string) (bool, string) { //valid/not, error
+	forbiddenStrings := []string{
+		"/", "\x00", /* null byte */
+	}
+	for _, s := range forbiddenStrings {
+		if strings.Contains(name, s) {
+			return false, "Improper filename; filename cannot have " + s
+		}
+	}
+	if name == "." || name == ".." {
+		return false, "Improper filename; filename cannot be . or .."
+	}
+	return true, ""
+}
+// }}}

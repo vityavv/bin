@@ -22,15 +22,21 @@ type File struct {
 }
 
 type Files interface {
+	Init(string) error // Currently location, may change to adapt to new methods
 	Get(string, string) (File, error) //Owner, Path
 	Edit(string, string, string) (error) //Owner, Path, Contents
 	Rename(string, string, string) (error) //Owner, Path, newPath
 	New(string, string) (File, error) //Owner, Path
 	NewFolder(string, string) (File, error) //Owner, Path
+	NewUser(string) error //Username
 }
 
 type FSFiles struct {
 	Location string
+}
+func (f *FSFiles) Init(location string) error {
+	f.Location = location
+	return nil
 }
 func (f FSFiles) Get(owner, path string) (File, error) {
 	fi, err := os.Lstat(f.Location + "/" + owner + "/" + path)
@@ -43,7 +49,7 @@ func (f FSFiles) Get(owner, path string) (File, error) {
 	}
 	if fi.IsDir() {
 		file.Filetype = FOLDER
-		folder, err := ioutil.ReadDir(f.Location + owner + "/" + path)
+		folder, err := ioutil.ReadDir(f.Location + "/" + owner + "/" + path)
 		if err != nil {
 			return File{}, err
 		}
@@ -74,7 +80,7 @@ func (f FSFiles) Get(owner, path string) (File, error) {
 
 func (f FSFiles) Edit(owner, path, contents string) error {
 	//should I put in some more checks here? I think this is alright
-	return ioutil.WriteFile(f.Location + "/" + owner + "/" + path, []byte(contents), 0600)
+	return ioutil.WriteFile(f.Location + "/" + owner + "/" + path, []byte(contents), 0755)
 }
 
 func (f FSFiles) Rename(owner, oldpath, newpath string) error {
@@ -95,7 +101,7 @@ func (f FSFiles) New(owner, path string) (File, error) {
 }
 
 func (f FSFiles) NewFolder(owner, path string) (File, error) {
-	err := os.MkdirAll(path, 0600)
+	err := os.MkdirAll(f.Location + "/" + owner + "/" + path, os.ModeDir + 0755)
 	if err != nil {
 		return File{}, err
 	}
@@ -105,4 +111,7 @@ func (f FSFiles) NewFolder(owner, path string) (File, error) {
 		Filetype: FOLDER,
 		FolderContents: []FileInfo{},
 	}, nil
+}
+func (f FSFiles) NewUser(username string) error {
+	return os.MkdirAll(f.Location + "/" + username, os.ModeDir)
 }
