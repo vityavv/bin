@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<title>Bin - {{.Name}}</title>
+		<title>Bin - {{base .Path}}</title>
 	</head>
 	<body>
-		<a href="/new/{{.Path}}">New file</a><br>
 		<form action="/logout" method="POST">
 			<button type="submit">Log Out</button>
 		</form>
+		<a href="/new/{{.Path}}">New file</a><br>
 		<h1>Bin</h1>
-		<h2>Folder: {{.Name}}</h2>
+		<h2>Folder: {{base .Path}}</h2>
 		<ul>
-			{{range .Items}}
-			<li><a href="/{{.Path}}">{{.Name}}</a></li>
+			{{range .FolderContents}}
+			<li><a href="/file/{{.Path}}">{{.Name}}</a></li>
 			{{end}}
 		</ul>
 	</body>

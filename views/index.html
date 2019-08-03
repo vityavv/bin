@@ -11,8 +11,8 @@
 			</form>
 			<a href="/new">New file</a><br>
 			<ul>
-				{{range .Items}}
-				<li><a href="/{{.Path}}">{{.Name}}</a></li>
+				{{range .File.FolderContents}}
+				<li><a href="/file/{{.Path}}">{{.Name}}</a></li>
 				{{end}}
 			</ul>
 		{{else}}

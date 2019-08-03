@@ -17,7 +17,7 @@ type Item struct {
 	Contents string
 }
 
-var templates = template.Must(template.ParseGlob("./views/*.html"))
+var templates = template.New("")
 var sessionStore *sessions.FilesystemStore
 
 //copied from previous work
@@ -31,6 +31,7 @@ func executeTemplate(w http.ResponseWriter, templ string, content interface{}) {
 var FILES Files
 
 func main() {
+	templates = template.Must(templates.Funcs(template.FuncMap{"base": path.Base}).ParseGlob("./views/*.html"))
 	DBinit()
 
 	key, err := ioutil.ReadFile("key")
@@ -47,6 +48,9 @@ func main() {
 	http.HandleFunc("/new/", newFile)
 	http.HandleFunc("/newFolder/", newFolder)
 
+	http.HandleFunc("/file/", showFile)
+	http.HandleFunc("/edit/", editFile)
+
 	http.HandleFunc("/", mainHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
@@ -59,8 +63,11 @@ func mainHandler(w http.ResponseWriter, r *http.Request) {
 			executeTemplate(w, "index.html", struct{Logged bool}{false})
 			return
 		}
-		//get stuff TODO
-		executeTemplate(w, "index.html", struct{Logged bool; Items []Item}{true, []Item{Item{"Test", "/test", "everyone", "stuff"}}})
+		index, err := FILES.Get(username, "/")
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		executeTemplate(w, "index.html", struct{Logged bool; File File}{true, index})
 		return
 	}
 	http.NotFound(w, r)
@@ -180,7 +187,8 @@ func authUser(w http.ResponseWriter, r *http.Request) (string, error) { // usern
 }
 // }}}
 
-// File Methods: {{{
+// Create Methods: {{{
+// !!!NOTE!!! - Variable "path" in some of these functions clashes with "path" library---that may cause a bug later
 func newFile(w http.ResponseWriter, r *http.Request) {
 	owner, err := authUser(w, r)
 	if err != nil {
@@ -259,5 +267,76 @@ func validate(name string) (bool, string) { //valid/not, error
 		return false, "Improper filename; filename cannot be . or .."
 	}
 	return true, ""
+}
+// }}}
+
+// Get and Edit: {{{
+// !!!NOTE!!! - Variable "path" in some of these functions clashes with "path" library---that may cause a bug later
+func showFile(w http.ResponseWriter, r *http.Request) {
+	owner, err := authUser(w, r)
+	if err != nil {return}
+	if owner == "" {
+		http.Redirect(w, r, "/", http.StatusFound)
+	}
+	if len(r.URL.Path) <= len("/file/") {
+		http.NotFound(w, r)
+		return
+	}
+	path := r.URL.Path[len("/file/"):]
+	file, err := FILES.Get(owner, path)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	switch file.Filetype {
+	case FILE:
+		executeTemplate(w, "file.html", file)
+	case FOLDER:
+		executeTemplate(w, "folder.html", file)
+	}
+}
+func editFile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Redirect(w, r, "/", http.StatusFound)
+	}
+	owner, err := authUser(w, r)
+	if err != nil {return}
+	if owner == "" {
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+	if len(r.URL.Path) <= len("/edit/") {
+		http.NotFound(w, r)
+		return
+	}
+	filepath := r.URL.Path[len("/file/"):]
+	//the following bans people from editing a file that doesn't exist
+	//should I allow it? That way, people could have a button to create & autofill a file with stuff
+	//TODO: think about this
+	file, err := FILES.Get(owner, filepath)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if file.Filetype != FILE {
+		http.Error(w, "You are trying to edit a folder instead of a file!", http.StatusBadRequest)
+		return
+	}
+	err = FILES.Edit(owner, filepath, r.FormValue("filecontents"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if r.FormValue("title") != "" && r.FormValue("title") != path.Base(file.Path) {
+		err = FILES.Rename(owner, filepath, path.Dir(filepath) + "/" + r.FormValue("title"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		http.Redirect(w, r, "/file/" + path.Dir(filepath) + "/" + r.FormValue("title"), http.StatusSeeOther)
+		return
+	}
+	//TODO: actual content indicator. THis is temporary to keep them on the page while we don't use JS
+	http.Redirect(w, r, "/file/" + filepath, http.StatusSeeOther)
 }
 // }}}

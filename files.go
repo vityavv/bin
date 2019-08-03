@@ -12,7 +12,7 @@ const (
 )
 // When showing the contents of a folder, this is used to get info about the type without getting the contents
 type FileInfo struct {
-	Path, Owner string
+	Path, Name, Owner string
 	Filetype Filetype
 }
 type File struct {
@@ -63,6 +63,7 @@ func (f FSFiles) Get(owner, path string) (File, error) {
 			}
 			file.FolderContents = append(file.FolderContents, FileInfo{
 				Path: path + "/" + info.Name(),
+				Name: info.Name(),
 				Owner: owner,
 				Filetype: filetype,
 			})

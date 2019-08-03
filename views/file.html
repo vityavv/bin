@@ -1,14 +1,17 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<title>Bin - {{.Name}}</title>
+		<title>Bin - {{base .Path}}</title>
 	</head>
 	<body>
 		<form action="/logout" method="POST">
 			<button type="submit">Log Out</button>
 		</form>
 		<h1>Bin</h1>
-		<h2><input id="title">{{.Name}}</h2>
-		<textarea>{{.Contents}}</textarea>
+		<form action="/edit/{{.Path}}" method="POST">
+			<h2>Title: <input name="title" value="{{base .Path}}"></h2>
+			<textarea name="filecontents">{{.FileContents}}</textarea>
+			<button type="submit">Save</button>
+		</form>
 	</body>
 </html>
