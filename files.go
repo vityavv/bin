@@ -81,7 +81,7 @@ func (f FSFiles) Get(owner, path string) (File, error) {
 
 func (f FSFiles) Edit(owner, path, contents string) error {
 	//should I put in some more checks here? I think this is alright
-	return ioutil.WriteFile(f.Location + "/" + owner + "/" + path, []byte(contents), 0755)
+	return ioutil.WriteFile(f.Location + "/" + owner + "/" + path, []byte(contents), 0644)
 }
 
 func (f FSFiles) Rename(owner, oldpath, newpath string) error {
@@ -114,5 +114,9 @@ func (f FSFiles) NewFolder(owner, path string) (File, error) {
 	}, nil
 }
 func (f FSFiles) NewUser(username string) error {
-	return os.MkdirAll(f.Location + "/" + username, os.ModeDir)
+	err := os.MkdirAll(f.Location + "/" + username, os.ModeDir + 0755)
+	if err != nil {return err}
+	defaultStyle, err := ioutil.ReadFile("views/default.css")
+	if err != nil {return err}
+	return ioutil.WriteFile(f.Location + "/" + username + "/.style.css", defaultStyle, 0644)
 }

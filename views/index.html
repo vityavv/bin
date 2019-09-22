@@ -1,27 +1,32 @@
 <!DOCTYPE html>
 <html>
 	<head>
+		<link rel="stylesheet" type="text/css" href="/css.css"/>
 		<title>Bin</title>
 	</head>
 	<body>
-		<h1>Bin</h1>
 		{{if .Logged}}
-			<form action="/logout" method="POST">
-				<button type="submit">Log Out</button>
-			</form>
-			<a href="/new">New file</a><br>
+			<header>
+				<b>Bin</b>
+				<form action="/logout" method="post">
+					<button type="submit" class="button">Log Out</button>
+				</form>
+				<a href="/new" class="button">New file</a>
+			</header>
+			<h2>My Bin</h2>
 			<ul>
 				{{range .File.FolderContents}}
-				<li><a href="/file/{{.Path}}">{{.Name}}</a></li>
+					<li>{{if eq .Filetype 0}}📄{{else}}📁{{end}}<a href="/file/{{.Path}}">{{.Name}}</a></li>
 				{{end}}
 			</ul>
 		{{else}}
-			<h2>Log In</h2>
-			<a href="/newUser">New Account</a>
+			<h2>Bin - Log In</h2>
+			<a href="/newUser" class="button">New Account</a><br><br>
 			<form action="/login" method="POST">
-				Username: <input type="text" name="username"/><br>
-				Password: <input type="password" name="password"/><br>
-				<button type="submit">Log In</button>
+				Username:<br><input type="text" name="username"/><br>
+				Password:<br><input type="password" name="password"/><br>
+				<br>
+				<button type="submit" class="button">Log In</button>
 			</form>
 		{{end}}
 	</body>

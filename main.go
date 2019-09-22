@@ -29,9 +29,10 @@ func executeTemplate(w http.ResponseWriter, templ string, content interface{}) {
 }
 
 var FILES Files
+var DEFAULTSTYLE []byte
 
 func main() {
-	templates = template.Must(templates.Funcs(template.FuncMap{"base": path.Base}).ParseGlob("./views/*.html"))
+	templates = template.Must(templates.Funcs(template.FuncMap{"base": path.Base, "dir": path.Dir}).ParseGlob("./views/*.html"))
 	DBinit()
 
 	key, err := ioutil.ReadFile("key")
@@ -40,6 +41,8 @@ func main() {
 
 	FILES = &FSFiles{}
 	FILES.Init("./files")
+	DEFAULTSTYLE, err = ioutil.ReadFile("views/default.css")
+	if err != nil {log.Fatal(err)}
 
 	http.HandleFunc("/login", login)
 	http.HandleFunc("/logout", logout)
@@ -48,6 +51,7 @@ func main() {
 	http.HandleFunc("/new/", newFile)
 	http.HandleFunc("/newFolder/", newFolder)
 
+	http.HandleFunc("/css.css", serveCss)
 	http.HandleFunc("/file/", showFile)
 	http.HandleFunc("/edit/", editFile)
 
@@ -272,6 +276,28 @@ func validate(name string) (bool, string) { //valid/not, error
 
 // Get and Edit: {{{
 // !!!NOTE!!! - Variable "path" in some of these functions clashes with "path" library---that may cause a bug later
+func serveCss(w http.ResponseWriter, r *http.Request) {
+	var style []byte
+	owner, err := authUser(w, r)
+	if err != nil {return}
+	if owner == "" {
+		style = DEFAULTSTYLE
+	} else {
+		if r.URL.Path != "/css.css" {
+			http.NotFound(w, r)
+			return
+		}
+		styleFile, err := FILES.Get(owner, "/.style.css")
+		if err != nil || styleFile.Filetype == FOLDER {
+			style = DEFAULTSTYLE
+		} else {
+			style = []byte(styleFile.FileContents)
+		}
+	}
+	w.Header().Set("Content-Type", "text/css")
+	w.WriteHeader(200)
+	w.Write(style)
+}
 func showFile(w http.ResponseWriter, r *http.Request) {
 	owner, err := authUser(w, r)
 	if err != nil {return}
@@ -279,7 +305,7 @@ func showFile(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusFound)
 	}
 	if len(r.URL.Path) <= len("/file/") {
-		http.NotFound(w, r)
+		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
 	path := r.URL.Path[len("/file/"):]

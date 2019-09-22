@@ -1,16 +1,27 @@
 <!DOCTYPE html>
 <html>
 	<head>
+		<link rel="stylesheet" type="text/css" href="/css.css"/>
 		<title>Bin: New Account</title>
 	</head>
 	<body>
-		<h1>Bin</h1>
-		<h2>Create Account</h2>
-		<form action="/newUser" method="POST">
-			Username: <input type="text" name="username"/>
-			Password: <input type="password" name="password"/>
-			Confirm Password: <input type="password" name="password2"/>
-			<button type="submit">Create Account</button>
+		<h2>Bin - Create Account</h2>
+		<form action="/newUser" method="POST" id="userForm">
+			Username:<br><input type="text" name="username"/><br>
+			Password:<br><input type="password" name="password" id="password"/><br>
+			Confirm Password:<br><input type="password" name="password2" id="password2"/><br><br>
+			<button type="submit" class="button">Create Account</button>
 		</form>
+<script>
+const form = document.getElementById("userForm")
+form.addEventListener("submit", e => {
+	e.preventDefault()
+	if (document.getElementById("password").value === document.getElementById("password2").value) {
+		form.submit()
+	} else {
+		alert("Password fields do not match")
+	}
+})
+</script>
 	</body>
 </html>

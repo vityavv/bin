@@ -1,18 +1,22 @@
 <!DOCTYPE html>
 <html>
 	<head>
+		<link rel="stylesheet" type="text/css" href="/css.css"/>
 		<title>Bin - {{base .Path}}</title>
 	</head>
 	<body>
-		<form action="/logout" method="POST">
-			<button type="submit">Log Out</button>
-		</form>
-		<a href="/new/{{.Path}}">New file</a><br>
-		<h1>Bin</h1>
-		<h2>Folder: {{base .Path}}</h2>
+		<header>
+			<b>Bin</b>
+			<form action="/logout" method="post">
+				<button type="submit" class="button">Log Out</button>
+			</form>
+			<a href="/new/{{.Path}}" class="button">New file</a>
+			<a href="/file/{{dir .Path}}" class="button">Back</a>
+		</header>
+		<h2>Folder: {{.Path}}</h2>
 		<ul>
 			{{range .FolderContents}}
-			<li><a href="/file/{{.Path}}">{{.Name}}</a></li>
+				<li>{{if eq .Filetype 0}}📄{{else}}📁{{end}}<a href="/file/{{.Path}}">{{.Name}}</a></li>
 			{{end}}
 		</ul>
 	</body>
