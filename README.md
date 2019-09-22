@@ -4,13 +4,13 @@ Basically this is a super-WIP "replacement" for Google Drive. I'd appreciate a b
 
 ## Goals
 
-[x] Vim shortcuts in the editor
+1. [x] Vim shortcuts in the editor
 	1. [ ] Make the escape key work!
-[ ] Customizable editor (probably goona use Ace for this)
-[ ] Render Markdown or even LaTeX
-[ ] Move files to a database
-[ ] File encryption
-[ ] Integrate with Google Drive
+2. [ ] Customizable editor (probably goona use Ace for this)
+3. [ ] Render Markdown or even LaTeX
+4. [ ] Move files to a database
+5. [ ] File encryption
+6. [ ] Integrate with Google Drive
 
 ## How to use
 
