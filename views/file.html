@@ -14,24 +14,28 @@
 		</header>
 		<main>
 			<form action="/edit/{{.Path}}" method="POST" id="form">
-				<input name="title" value="{{base .Path}}">
+				<input name="title" id="title" value="{{base .Path}}">
 				<div id="editor">{{.FileContents}}</div>
 				<textarea hidden id="filecontents" name="filecontents"></textarea>
 				<button type="submit" class="button">Save</button>
 			</form>
 		</main>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.6/ace.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.6/ext-modelist.js"></script>
 <script>
 const editor = ace.edit("editor")
-editor.setTheme("ace/theme/gruvbox")
 editor.setKeyboardHandler("ace/keyboard/vim")
 
 const form = document.getElementById("form")
-form.addEventListener("submit", e => {
-	e.preventDefault()
+function submitForm(e) {
+	if (e) e.preventDefault()
 	document.getElementById("filecontents").innerHTML = editor.getValue()
 	form.submit()
+}
+ace.config.loadModule("ace/keyboard/vim", m => {
+	m.CodeMirror.Vim.defineEx("write", "w", () => submitForm())
 })
+form.addEventListener("submit", submitForm)
 
 const editorElement = document.getElementById("editor")
 editorElement.addEventListener("keyup", e => {
@@ -41,5 +45,6 @@ editorElement.addEventListener("keyup", e => {
 })
 editorElement.focus()
 </script>
+		<script src="/userScript.js"></script>
 	</body>
 </html>
