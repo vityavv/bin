@@ -12,11 +12,12 @@
 					<button type="submit" class="button">Log Out</button>
 				</form>
 				<a href="/new" class="button">New file</a>
+				<button id="newFolder" class="button">New Folder</button>
 			</header>
 			<h2>My Bin</h2>
 			<ul>
 				{{range .File.FolderContents}}
-					<li>{{if eq .Filetype 0}}📄{{else}}📁{{end}}<a href="/file/{{.Path}}">{{.Name}}</a></li>
+					<li><a href="javascript:;" class="remove" data-filename="{{base .Path}}">❌</a> {{if eq .Filetype 0}}📄{{else}}📁{{end}}<a href="/file/{{.Path}}">{{.Name}}</a></li>
 				{{end}}
 			</ul>
 		{{else}}
@@ -29,6 +30,16 @@
 				<button type="submit" class="button">Log In</button>
 			</form>
 		{{end}}
+<script>
+document.getElementById("newFolder").addEventListener("click", () => {
+	window.location = window.location.origin + "/newFolder/" + encodeURIComponent(prompt("Enter a name for the new folder:"))
+})
+Array.from(document.getElementsByClassName("remove")).forEach(a => {
+	a.addEventListener("click", e => {
+		if (confirm(`Are you sure you want to delete ${a.dataset.filename}?`)) window.location.href = window.location.origin + "/remove/" + encodeURIComponent(a.dataset.filename)
+	})
+})
+</script>
 	</body>
 </html>
 

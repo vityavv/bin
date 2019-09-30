@@ -1,5 +1,6 @@
 package main
 
+// Imports and initializations: {{{
 import (
 	"net/http"
 	"html/template"
@@ -8,6 +9,7 @@ import (
 	"log"
 	"strings"
 	"path"
+	"net/url"
 )
 
 type Item struct {
@@ -30,7 +32,9 @@ func executeTemplate(w http.ResponseWriter, templ string, content interface{}) {
 
 var FILES Files
 var DEFAULTSTYLE, DEFAULTSCRIPT []byte
+// }}}
 
+// Main: {{{
 func main() {
 	templates = template.Must(templates.Funcs(template.FuncMap{"base": path.Base, "dir": path.Dir}).ParseGlob("./views/*.html"))
 	DBinit()
@@ -57,6 +61,8 @@ func main() {
 	http.HandleFunc("/userScript.js", serveJs)
 	http.HandleFunc("/file/", showFile)
 	http.HandleFunc("/edit/", editFile)
+	http.HandleFunc("/renameFolder/", renameFolder)
+	http.HandleFunc("/remove/", remove)
 
 	http.HandleFunc("/", mainHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
@@ -79,6 +85,7 @@ func mainHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	http.NotFound(w, r)
 }
+// }}}
 
 // User Methods: {{{
 func newUser(w http.ResponseWriter, r *http.Request) {
@@ -196,16 +203,33 @@ func authUser(w http.ResponseWriter, r *http.Request) (string, error) { // usern
 
 // Create Methods: {{{
 // !!!NOTE!!! - Variable "path" in some of these functions clashes with "path" library---that may cause a bug later
+func getFilePathFromURL(u *url.URL, prefix string) (string, error) {
+	path := u.Path[len(prefix):]
+	var err error
+	if u.RawQuery != "" {
+		var rq string
+		rq, err = url.QueryUnescape(u.RawQuery)
+		path += "?" + rq
+	}
+	if u.Fragment != "" {
+		path += "#" + u.Fragment
+	}
+	return path, err
+}
+
 func newFile(w http.ResponseWriter, r *http.Request) {
 	owner, err := authUser(w, r)
 	if err != nil {
 		return
 	}
-	var name string
-	if len(r.URL.Path) <= len("/new/") {
+	name, err := getFilePathFromURL(r.URL, "/new/")
+	if err != nil {
+		http.Error(w, "Bad Filename", http.StatusBadRequest)
+		return
+	}
+	if name == "" {
 		name = "Untitled"
 	} else {
-		name = r.URL.Path[len("/new/"):]
 		exists, err := FILES.Get(owner, name)
 		if err == nil {
 			if exists.Filetype == FOLDER {
@@ -226,18 +250,21 @@ func newFile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/file/" + file.Path, http.StatusFound)
+	http.Redirect(w, r, "/file/" + file.Path + "#", http.StatusFound)
 }
 func newFolder(w http.ResponseWriter, r *http.Request) {
 	owner, err := authUser(w, r)
 	if err != nil {
 		return
 	}
-	var name string
-	if len(r.URL.Path) <= len("/newFolder/") {
+	name, err := getFilePathFromURL(r.URL, "/newFolder/")
+	if err != nil {
+		http.Error(w, "Bad Filename", http.StatusBadRequest)
+		return
+	}
+	if name == "" {
 		name = "Untitled"
 	} else {
-		name = r.URL.Path[len("/newFolder/"):]
 		exists, err := FILES.Get(owner, name)
 		if err == nil {
 			if exists.Filetype == FOLDER {
@@ -258,12 +285,14 @@ func newFolder(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/file/" + folder.Path, http.StatusFound)
+	http.Redirect(w, r, "/file/" + folder.Path + "/", http.StatusFound)
 }
 //consider changing to just string & chekcing if it is empty
 func validate(name string) (bool, string) { //valid/not, error
 	forbiddenStrings := []string{
 		"/", "\x00", /* null byte */
+		"#", /* reference fragments can go fuck themselves */
+		"%", /* deciding between ? and %, I had to allow ?... */
 	}
 	for _, s := range forbiddenStrings {
 		if strings.Contains(name, s) {
@@ -277,7 +306,7 @@ func validate(name string) (bool, string) { //valid/not, error
 }
 // }}}
 
-// Get and Edit: {{{
+// Show files: {{{
 // !!!NOTE!!! - Variable "path" in some of these functions clashes with "path" library---that may cause a bug later
 func serveCss(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/css.css" {
@@ -326,11 +355,14 @@ func showFile(w http.ResponseWriter, r *http.Request) {
 	if owner == "" {
 		http.Redirect(w, r, "/", http.StatusFound)
 	}
-	if len(r.URL.Path) <= len("/file/") {
-		http.Redirect(w, r, "/", http.StatusFound)
+	path, err := getFilePathFromURL(r.URL, "/file/")
+	if err != nil {
+		http.Error(w, "Bad Filename", http.StatusBadRequest)
 		return
 	}
-	path := r.URL.Path[len("/file/"):]
+	if path == "" {
+		http.Redirect(w, r, "/", http.StatusFound)
+	}
 	file, err := FILES.Get(owner, path)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -343,9 +375,17 @@ func showFile(w http.ResponseWriter, r *http.Request) {
 		executeTemplate(w, "folder.html", file)
 	}
 }
+// }}}
+
+// Edit/rename files: {{{
 func editFile(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.Redirect(w, r, "/", http.StatusFound)
+	}
+	valid, errStr := validate(path.Base(r.FormValue("title")))
+	if !valid {
+		http.Error(w, errStr, http.StatusBadRequest)
+		return
 	}
 	owner, err := authUser(w, r)
 	if err != nil {return}
@@ -353,11 +393,15 @@ func editFile(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
-	if len(r.URL.Path) <= len("/edit/") {
-		http.NotFound(w, r)
+	filepath, err := getFilePathFromURL(r.URL, "/edit/")
+	if err != nil {
+		http.Error(w, "Bad Filename", http.StatusBadRequest)
 		return
 	}
-	filepath := r.URL.Path[len("/file/"):]
+	if filepath == "" {
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
 	//the following bans people from editing a file that doesn't exist
 	//should I allow it? That way, people could have a button to create & autofill a file with stuff
 	//TODO: think about this
@@ -381,10 +425,71 @@ func editFile(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		http.Redirect(w, r, "/file/" + path.Dir(filepath) + "/" + r.FormValue("title"), http.StatusSeeOther)
+		http.Redirect(w, r, "/file/" + path.Dir(filepath) + "/" + r.FormValue("title") + "#", http.StatusSeeOther)
 		return
 	}
 	//TODO: actual content indicator. THis is temporary to keep them on the page while we don't use JS
-	http.Redirect(w, r, "/file/" + filepath, http.StatusSeeOther)
+	http.Redirect(w, r, "/file/" + filepath + "#", http.StatusSeeOther)
+}
+func renameFolder(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Redirect(w, r, "/", http.StatusFound)
+	}
+	valid, errStr := validate(path.Base(r.FormValue("name")))
+	if !valid {
+		http.Error(w, errStr, http.StatusBadRequest)
+		return
+	}
+	owner, err := authUser(w, r)
+	if err != nil {return}
+	if owner == "" {
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+	filepath, err := getFilePathFromURL(r.URL, "/renameFolder/")
+	if err != nil {
+		http.Error(w, "Bad Filename:" + err.Error(), http.StatusBadRequest)
+		return
+	}
+	if filepath == "" {
+		http.Redirect(w, r, "/", http.StatusFound)
+	}
+	folder, err := FILES.Get(owner, filepath)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if folder.Filetype != FOLDER {
+		http.Error(w, "You are trying to rename a file instead of a folder. To rename a file, open the file, change its title, and press \"Save\"", http.StatusBadRequest)
+		return
+	}
+	if r.FormValue("name") != "" && r.FormValue("name") != path.Base(folder.Path) {
+		err = FILES.Rename(owner, filepath, path.Dir(filepath) + "/" + r.FormValue("name"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		http.Redirect(w, r, "/file/" + path.Dir(filepath) + "/" + r.FormValue("name") + "#", http.StatusSeeOther)
+		return
+	}
+	http.Error(w, "No folder name provided or folder name has not changed", http.StatusBadRequest)
 }
 // }}}
+
+func remove(w http.ResponseWriter, r *http.Request) {
+	owner, err := authUser(w, r)
+	if err != nil {
+		return
+	}
+	filename, err := getFilePathFromURL(r.URL, "/remove/")
+	if err != nil {
+		http.Error(w, "Bad Filename", http.StatusBadRequest)
+		return
+	}
+	err = FILES.Remove(owner, filename)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/file/" + path.Dir(filename) + "#", http.StatusFound)
+}

@@ -26,6 +26,7 @@ type Files interface {
 	Get(string, string) (File, error) //Owner, Path
 	Edit(string, string, string) (error) //Owner, Path, Contents
 	Rename(string, string, string) (error) //Owner, Path, newPath
+	Remove(string, string) error //Owner, Path
 	New(string, string) (File, error) //Owner, Path
 	NewFolder(string, string) (File, error) //Owner, Path
 	NewUser(string) error //Username
@@ -86,6 +87,10 @@ func (f FSFiles) Edit(owner, path, contents string) error {
 
 func (f FSFiles) Rename(owner, oldpath, newpath string) error {
 	return os.Rename(f.Location + "/" + owner + "/" + oldpath, f.Location + "/" + owner + "/" + newpath)
+}
+
+func (f FSFiles) Remove(owner, path string) error {
+	return os.RemoveAll(f.Location + "/" + owner + "/" + path)
 }
 
 func (f FSFiles) New(owner, path string) (File, error) {

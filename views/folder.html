@@ -10,14 +10,31 @@
 			<form action="/logout" method="post">
 				<button type="submit" class="button">Log Out</button>
 			</form>
-			<a href="/new/{{.Path}}" class="button">New file</a>
 			<a href="/file/{{dir .Path}}" class="button">Back</a>
+			<a href="/new/{{.Path}}" class="button">New file</a>
+			<button class="button" id="newFolder">New folder</button>
 		</header>
-		<h2>Folder: {{.Path}}</h2>
-		<ul>
+		<h2>
+			Folder: {{dir .Path}}/
+			<form action="/renameFolder/{{.Path}}" method="post">
+				<input type="text" name="name" value="{{base .Path}}">
+				<button class="button" type="submit">Rename</button>
+			</form>
+		</h2>
+	<ul>
 			{{range .FolderContents}}
-				<li>{{if eq .Filetype 0}}📄{{else}}📁{{end}}<a href="/file/{{.Path}}">{{.Name}}</a></li>
+			<li><a href="javascript:;" class="remove" data-filename="{{base .Path}}">❌</a> {{if eq .Filetype 0}}📄{{else}}📁{{end}}<a href="/file/{{.Path}}">{{.Name}}</a></li>
 			{{end}}
 		</ul>
+<script>
+document.getElementById("newFolder").addEventListener("click", () => {
+	window.location.href = window.location.origin + "/newFolder/" + window.location.pathname.slice("/file/".length - 1) + "/" + encodeURIComponent(prompt("Enter a name for the new folder:"))
+})
+Array.from(document.getElementsByClassName("remove")).forEach(a => {
+	a.addEventListener("click", e => {
+		if (confirm(`Are you sure you want to delete ${a.id}?`)) window.location.href = window.location.origin + "/remove/{{.Path}}/" + a.dataset.filename
+	})
+})
+</script>
 	</body>
 </html>
