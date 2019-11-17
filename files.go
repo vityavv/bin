@@ -127,5 +127,9 @@ func (f FSFiles) NewUser(username string) error {
 	if err != nil {return err}
 	defaultScript, err := ioutil.ReadFile("views/default.js")
 	if err != nil {return err}
-	return ioutil.WriteFile(f.Location + "/" + username + "/.userScript.js", defaultScript, 0644)
+	err = ioutil.WriteFile(f.Location + "/" + username + "/.userScript.js", defaultScript, 0644)
+	if err != nil {return err}
+	defaultRenderedStyle, err := ioutil.ReadFile("views/rendered.css")
+	if err != nil {return err}
+	return ioutil.WriteFile(f.Location + "/" + username + "/.renderedStyle.css", defaultRenderedStyle, 0644)
 }

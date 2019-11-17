@@ -81,6 +81,14 @@ input {
   background-color: var(--bg);
 	font-size: 1.25em;
 }
+input[type="file"] {
+	display: none;
+}
+.divider {
+	/*ch - relative to the width of the "0"*/
+	display: inline-block;
+	width: 3ch;
+}
 /* The following are present on the folder/main pages */
 h2 {
 	margin: 10px 0;

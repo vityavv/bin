@@ -10,6 +10,7 @@ import (
 	"strings"
 	"path"
 	"net/url"
+	"time"
 )
 
 type Item struct {
@@ -31,7 +32,7 @@ func executeTemplate(w http.ResponseWriter, templ string, content interface{}) {
 }
 
 var FILES Files
-var DEFAULTSTYLE, DEFAULTSCRIPT []byte
+var DEFAULTSTYLE, DEFAULTSCRIPT, DEFAULTRENDEREDSTYLE []byte
 // }}}
 
 // Main: {{{
@@ -46,23 +47,26 @@ func main() {
 	FILES = &FSFiles{}
 	FILES.Init("./files")
 	DEFAULTSTYLE, err = ioutil.ReadFile("views/default.css")
-	if err != nil {log.Fatal(err)}
 	DEFAULTSCRIPT, err = ioutil.ReadFile("views/default.js")
+	DEFAULTRENDEREDSTYLE, err = ioutil.ReadFile("views/rendered.css")
 	if err != nil {log.Fatal(err)}
 
 	http.HandleFunc("/login", login)
 	http.HandleFunc("/logout", logout)
 	http.HandleFunc("/newUser", newUser)
 
-	http.HandleFunc("/new/", newFile)
-	http.HandleFunc("/newFolder/", newFolder)
+	http.HandleFunc("/new/", reqAuth(newFile))
+	http.HandleFunc("/newFolder/", reqAuth(newFolder))
 
-	http.HandleFunc("/css.css", serveCss)
-	http.HandleFunc("/userScript.js", serveJs)
-	http.HandleFunc("/file/", showFile)
-	http.HandleFunc("/edit/", editFile)
-	http.HandleFunc("/renameFolder/", renameFolder)
-	http.HandleFunc("/remove/", remove)
+	http.HandleFunc("/css.css", reqAuth(serveCss))
+	http.HandleFunc("/userScript.js", reqAuth(serveJs))
+	http.HandleFunc("/rendered.css", serveRendered)
+	http.HandleFunc("/file/", reqAuth(showFile))
+	http.HandleFunc("/edit/", reqAuth(editFile))
+	http.HandleFunc("/upload/", reqAuth(upload))
+	http.HandleFunc("/renameFolder/", reqAuth(renameFolder))
+	http.HandleFunc("/remove/", reqAuth(remove))
+	http.HandleFunc("/render/", reqAuth(render))
 
 	http.HandleFunc("/", mainHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
@@ -199,6 +203,14 @@ func authUser(w http.ResponseWriter, r *http.Request) (string, error) { // usern
 	}
 	return username, nil
 }
+func reqAuth(handler func(http.ResponseWriter, *http.Request, string)) func(http.ResponseWriter, *http.Request) {
+	return func (w http.ResponseWriter, r *http.Request) {
+		username, err := authUser(w, r)
+		if err != nil {return}
+		handler(w, r, username)
+	}
+}
+
 // }}}
 
 // Create Methods: {{{
@@ -217,11 +229,7 @@ func getFilePathFromURL(u *url.URL, prefix string) (string, error) {
 	return path, err
 }
 
-func newFile(w http.ResponseWriter, r *http.Request) {
-	owner, err := authUser(w, r)
-	if err != nil {
-		return
-	}
+func newFile(w http.ResponseWriter, r *http.Request, owner string) {
 	name, err := getFilePathFromURL(r.URL, "/new/")
 	if err != nil {
 		http.Error(w, "Bad Filename", http.StatusBadRequest)
@@ -252,11 +260,7 @@ func newFile(w http.ResponseWriter, r *http.Request) {
 	}
 	http.Redirect(w, r, "/file/" + file.Path + "#", http.StatusFound)
 }
-func newFolder(w http.ResponseWriter, r *http.Request) {
-	owner, err := authUser(w, r)
-	if err != nil {
-		return
-	}
+func newFolder(w http.ResponseWriter, r *http.Request, owner string) {
 	name, err := getFilePathFromURL(r.URL, "/newFolder/")
 	if err != nil {
 		http.Error(w, "Bad Filename", http.StatusBadRequest)
@@ -285,7 +289,37 @@ func newFolder(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/file/" + folder.Path + "/", http.StatusFound)
+	http.Redirect(w, r, "/file/" + folder.Path, http.StatusFound)
+}
+func upload(w http.ResponseWriter, r *http.Request, owner string) {
+	if r.Method != "POST" {
+		http.Redirect(w, r, "/", http.StatusFound)
+	}
+	// one gibibyte upload limit
+	r.ParseMultipartForm(2 << 30)
+	file, info, err := r.FormFile("upload")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	valid, errStr := validate(info.Filename)
+	if !valid {
+		http.Error(w, errStr, http.StatusBadRequest)
+		return
+	}
+	filepath, err := getFilePathFromURL(r.URL, "/upload/")
+	if err != nil {
+		http.Error(w, "Bad Filename", http.StatusBadRequest)
+		return
+	}
+	fullfilepath := filepath + "/" + info.Filename
+	defer file.Close()
+	filecontents, err := ioutil.ReadAll(file)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+	FILES.Edit(owner, fullfilepath, string(filecontents))
+	http.Redirect(w, r, "/file/" + filepath, http.StatusFound)
 }
 //consider changing to just string & chekcing if it is empty
 func validate(name string) (bool, string) { //valid/not, error
@@ -308,14 +342,12 @@ func validate(name string) (bool, string) { //valid/not, error
 
 // Show files: {{{
 // !!!NOTE!!! - Variable "path" in some of these functions clashes with "path" library---that may cause a bug later
-func serveCss(w http.ResponseWriter, r *http.Request) {
+func serveCss(w http.ResponseWriter, r *http.Request, owner string) {
 	if r.URL.Path != "/css.css" {
 		http.NotFound(w, r)
 		return
 	}
 	var style []byte
-	owner, err := authUser(w, r)
-	if err != nil {return}
 	if owner == "" {
 		style = DEFAULTSTYLE
 	} else {
@@ -330,13 +362,11 @@ func serveCss(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
 	w.Write(style)
 }
-func serveJs(w http.ResponseWriter, r *http.Request) {
+func serveJs(w http.ResponseWriter, r *http.Request, owner string) {
 	if r.URL.Path != "/userScript.js" {
 		http.NotFound(w, r)
 		return
 	}
-	owner, err := authUser(w, r)
-	if err != nil {return}
 	if owner == "" {return} //shouldn't happen
 	var script []byte
 	jsFile, err := FILES.Get(owner, "/.userScript.js")
@@ -349,9 +379,7 @@ func serveJs(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
 	w.Write(script)
 }
-func showFile(w http.ResponseWriter, r *http.Request) {
-	owner, err := authUser(w, r)
-	if err != nil {return}
+func showFile(w http.ResponseWriter, r *http.Request, owner string) {
 	if owner == "" {
 		http.Redirect(w, r, "/", http.StatusFound)
 	}
@@ -377,20 +405,14 @@ func showFile(w http.ResponseWriter, r *http.Request) {
 }
 // }}}
 
-// Edit/rename files: {{{
-func editFile(w http.ResponseWriter, r *http.Request) {
+// Edit/rename/remove files: {{{zo
+func editFile(w http.ResponseWriter, r *http.Request, owner string) {
 	if r.Method != "POST" {
 		http.Redirect(w, r, "/", http.StatusFound)
 	}
 	valid, errStr := validate(path.Base(r.FormValue("title")))
 	if !valid {
 		http.Error(w, errStr, http.StatusBadRequest)
-		return
-	}
-	owner, err := authUser(w, r)
-	if err != nil {return}
-	if owner == "" {
-		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
 	filepath, err := getFilePathFromURL(r.URL, "/edit/")
@@ -431,7 +453,7 @@ func editFile(w http.ResponseWriter, r *http.Request) {
 	//TODO: actual content indicator. THis is temporary to keep them on the page while we don't use JS
 	http.Redirect(w, r, "/file/" + filepath + "#", http.StatusSeeOther)
 }
-func renameFolder(w http.ResponseWriter, r *http.Request) {
+func renameFolder(w http.ResponseWriter, r *http.Request, owner string) {
 	if r.Method != "POST" {
 		http.Redirect(w, r, "/", http.StatusFound)
 	}
@@ -440,8 +462,6 @@ func renameFolder(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, errStr, http.StatusBadRequest)
 		return
 	}
-	owner, err := authUser(w, r)
-	if err != nil {return}
 	if owner == "" {
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
@@ -474,13 +494,8 @@ func renameFolder(w http.ResponseWriter, r *http.Request) {
 	}
 	http.Error(w, "No folder name provided or folder name has not changed", http.StatusBadRequest)
 }
-// }}}
 
-func remove(w http.ResponseWriter, r *http.Request) {
-	owner, err := authUser(w, r)
-	if err != nil {
-		return
-	}
+func remove(w http.ResponseWriter, r *http.Request, owner string) {
 	filename, err := getFilePathFromURL(r.URL, "/remove/")
 	if err != nil {
 		http.Error(w, "Bad Filename", http.StatusBadRequest)
@@ -493,3 +508,65 @@ func remove(w http.ResponseWriter, r *http.Request) {
 	}
 	http.Redirect(w, r, "/file/" + path.Dir(filename) + "#", http.StatusFound)
 }
+// }}}
+
+// Render files: {{{
+func render(w http.ResponseWriter, r *http.Request, owner string) {
+	pathChunks := strings.Split(r.URL.Path[len("/render/"):], "/")
+	rednerer, exists := RENDERFUNCS[pathChunks[0]]
+	if !exists && pathChunks[0] != "plain" {
+		http.Error(w, "Renderer not found", http.StatusNotFound)
+		return
+	}
+	filename, err := getFilePathFromURL(r.URL, "/render/" + pathChunks[0] + "/")
+	if err != nil {
+		http.Error(w, "Bad Filename", http.StatusBadRequest)
+		return
+	}
+	if filename == "" {
+		http.Redirect(w, r, "/", http.StatusFound)
+	}
+	file, err := FILES.Get(owner, filename)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if file.Filetype == FOLDER {
+		http.Error(w, "You cannot render a folder", http.StatusBadRequest)
+		return
+	}
+	if pathChunks[0] == "plain" {
+		http.ServeContent(w, r, filename, time.Now(), strings.NewReader(file.FileContents))
+		return
+	}
+	renderedText, err := rednerer(file.FileContents)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	executeTemplate(w, "rendered.html", Rendered{filename, renderedText})
+}
+
+func serveRendered(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/rendered.css" {
+		http.NotFound(w, r)
+		return
+	}
+	var style []byte
+	owner, err := authUser(w, r)
+	if err != nil {return}
+	if owner == "" {
+		style = DEFAULTRENDEREDSTYLE
+	} else {
+		styleFile, err := FILES.Get(owner, "/.renderedStyle.css")
+		if err != nil || styleFile.Filetype == FOLDER {
+			style = DEFAULTRENDEREDSTYLE
+		} else {
+			style = []byte(styleFile.FileContents)
+		}
+	}
+	w.Header().Set("Content-Type", "text/css")
+	w.WriteHeader(200)
+	w.Write(style)
+}
+// }}}
