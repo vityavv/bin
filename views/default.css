@@ -47,6 +47,26 @@ b {
   top: 6px;
   left: 6px;
 }
+/* This is for the option selector thing */
+footer {
+	display: flex;
+	padding-top: 10px;
+}
+#selectWrapper:after {
+	content: "▼";
+	color: var(--bg);
+	position: relative;
+	right: 21px;
+}
+select {
+	margin-left: 1em;
+	background: var(--fg);
+	color: var(--bg);
+	border: none;
+	-moz-appearance: none;
+	-webkit-appearance: none;
+	width: 10em;
+}
 /* The editorbody class is only present on the body of the editor page */
 body.editorbody {
 	display: flex;

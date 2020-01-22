@@ -2,7 +2,7 @@
 <html>
 	<head>
 		<link rel="stylesheet" type="text/css" href="/css.css"/>
-		<title>Bin - {{base .Path}}</title>
+		<title>Bin - {{base .File.Path}}</title>
 	</head>
 	<body>
 		<header>
@@ -10,11 +10,11 @@
 			<form action="/logout" method="post">
 				<button type="submit" class="button">Log Out</button>
 			</form>
-			<a href="/file/{{dir .Path}}" class="button">Back</a>
-			<a href="/new/{{.Path}}" class="button">New file</a>
+			<a href="/file/{{dir .File.Path}}" class="button">Back</a>
+			<a href="/new/{{.File.Path}}" class="button">New file</a>
 			<button class="button" id="newFolder">New folder</button>
 			<span class="divider"></span>
-			<form action="/upload/{{.Path}}" method="post" enctype="multipart/form-data" id="upload_form">
+			<form action="/upload/{{.File.Path}}" method="post" enctype="multipart/form-data" id="upload_form">
 				<label for="upload" class="button">Choose file</label>
 				<span id="file_chosen"></span>
 				<input type="file" name="upload" id="upload">
@@ -22,14 +22,14 @@
 			</form>
 		</header>
 		<h2>
-			Folder: {{dir .Path}}/
-			<form action="/renameFolder/{{.Path}}" method="post">
-				<input type="text" name="name" value="{{base .Path}}">
+			Folder: {{dir .File.Path}}/
+			<form action="/renameFolder/{{.File.Path}}" method="post">
+				<input type="text" name="name" value="{{base .File.Path}}">
 				<button class="button" type="submit">Rename</button>
 			</form>
 		</h2>
 	<ul>
-			{{range .FolderContents}}
+			{{range .File.FolderContents}}
 			<li><a href="javascript:;" class="remove" data-filename="{{base .Path}}">❌</a> {{if eq .Filetype 0}}📄{{else}}📁{{end}}<a href="/file/{{.Path}}">{{.Name}}</a></li>
 			{{end}}
 		</ul>

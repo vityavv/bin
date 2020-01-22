@@ -379,6 +379,10 @@ func serveJs(w http.ResponseWriter, r *http.Request, owner string) {
 	w.WriteHeader(200)
 	w.Write(script)
 }
+type RenderInfo struct {
+	File File
+	RenderFuncs []string
+}
 func showFile(w http.ResponseWriter, r *http.Request, owner string) {
 	if owner == "" {
 		http.Redirect(w, r, "/", http.StatusFound)
@@ -396,16 +400,22 @@ func showFile(w http.ResponseWriter, r *http.Request, owner string) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	renderFuncs := make([]string, 0, len(RENDERFUNCS) + 1)
+	for key := range RENDERFUNCS {
+		renderFuncs = append(renderFuncs, key)
+	}
+	renderFuncs = append(renderFuncs, "plain")
+	renderInfo := RenderInfo{File: file, RenderFuncs: renderFuncs}
 	switch file.Filetype {
 	case FILE:
-		executeTemplate(w, "file.html", file)
+		executeTemplate(w, "file.html", renderInfo)
 	case FOLDER:
-		executeTemplate(w, "folder.html", file)
+		executeTemplate(w, "folder.html", renderInfo)
 	}
 }
 // }}}
 
-// Edit/rename/remove files: {{{zo
+// Edit/rename/remove files: {{{
 func editFile(w http.ResponseWriter, r *http.Request, owner string) {
 	if r.Method != "POST" {
 		http.Redirect(w, r, "/", http.StatusFound)

@@ -2,7 +2,7 @@
 <html>
 	<head>
 		<link rel="stylesheet" type="text/css" href="/css.css"/>
-		<title>Bin - {{base .Path}}</title>
+		<title>Bin - {{base .File.Path}}</title>
 	</head>
 	<body class="editorbody">
 		<header>
@@ -10,16 +10,26 @@
 			<form action="/logout" method="post">
 				<button type="submit" class="button">Log Out</button>
 			</form>
-			<a href="/file/{{dir .Path}}" class="button">Back</a>
+			<a href="/file/{{dir .File.Path}}" class="button">Back</a>
 		</header>
 		<main>
-			<form action="/edit/{{.Path}}" method="POST" id="form">
-				<input name="title" id="title" value="{{base .Path}}">
-				<div id="editor">{{.FileContents}}</div>
+			<form action="/edit/{{.File.Path}}" method="POST" id="form">
+				<input name="title" id="title" value="{{base .File.Path}}">
+				<div id="editor">{{.File.FileContents}}</div>
 				<textarea hidden id="filecontents" name="filecontents"></textarea>
 				<button type="submit" class="button">Save</button>
 			</form>
 		</main>
+		<footer>
+			<button id="render" class="button">Render</button>
+			<div id="selectWrapper">
+				<select id="renderfunc">
+					{{range .RenderFuncs}}
+						<option value="{{.}}">{{.}}</option>
+					{{end}}
+				</select>
+			</div>
+		</footer>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.6/ace.js"></script>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.6/ext-modelist.js"></script>
 <script>
@@ -44,6 +54,11 @@ editorElement.addEventListener("keyup", e => {
 	}
 })
 editorElement.focus()
+
+document.getElementById("render").addEventListener("click", () => {
+	const option = document.getElementById("renderfunc")
+	location.pathname = `/render/${option.options[option.selectedIndex].value}/${location.pathname.substring(6)}`
+})
 </script>
 		<script src="/userScript.js"></script>
 	</body>
