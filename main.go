@@ -195,7 +195,10 @@ func authUser(w http.ResponseWriter, r *http.Request) (string, error) { // usern
 	username, password := interface_username.(string), interface_password.(string) //TODO: type switch + error
 	loggedIn, err := DBlogIn(username, password)
 	if err != nil {
-		http.Error(w, "Error logging in", http.StatusInternalServerError)
+		http.Error(w, "Error logging in. Session has been cleared; try reloading.", http.StatusInternalServerError)
+		delete(session.Values, "username")
+		delete(session.Values, "password")
+		session.Save(r, w)
 		return "", err
 	}
 	if !loggedIn {

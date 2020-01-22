@@ -22,7 +22,7 @@ func DBclose() {db.Close()}
 
 // User methods: {{{
 func DBcreateUser(username, password string) error {
-	hashed, err := bcrypt.GenerateFromPassword([]byte(username), bcrypt.DefaultCost)
+	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
