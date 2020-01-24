@@ -11,6 +11,7 @@ import (
 	"path"
 	"net/url"
 	"time"
+	"encoding/base64"
 )
 
 type Item struct {
@@ -36,8 +37,21 @@ var DEFAULTSTYLE, DEFAULTSCRIPT, DEFAULTRENDEREDSTYLE []byte
 // }}}
 
 // Main: {{{
+func encode(data string) string {
+	return base64.StdEncoding.EncodeToString([]byte(data))
+}
+func decode(data string) string {
+	decoded, err := base64.StdEncoding.DecodeString(data)
+	if err != nil {
+		return err.Error()
+	}
+	return string(decoded)
+}
 func main() {
-	templates = template.Must(templates.Funcs(template.FuncMap{"base": path.Base, "dir": path.Dir}).ParseGlob("./views/*.html"))
+	templates = template.Must(templates.Funcs(template.FuncMap{
+		"base": path.Base, "dir": path.Dir,
+		"base64encode": encode, "base64decode": decode,
+	}).ParseGlob("./views/*.html"))
 	DBinit()
 
 	key, err := ioutil.ReadFile("key")
@@ -385,6 +399,7 @@ func serveJs(w http.ResponseWriter, r *http.Request, owner string) {
 type RenderInfo struct {
 	File File
 	RenderFuncs []string
+	MIME string
 }
 func showFile(w http.ResponseWriter, r *http.Request, owner string) {
 	if owner == "" {
@@ -411,7 +426,13 @@ func showFile(w http.ResponseWriter, r *http.Request, owner string) {
 	renderInfo := RenderInfo{File: file, RenderFuncs: renderFuncs}
 	switch file.Filetype {
 	case FILE:
-		executeTemplate(w, "file.html", renderInfo)
+		fileMIME := http.DetectContentType([]byte(file.FileContents))
+		renderInfo.MIME = fileMIME
+		if fileMIME[:len("image")] == "image" {
+			executeTemplate(w, "image.html", renderInfo)
+		} else {
+			executeTemplate(w, "file.html", renderInfo)
+		}
 	case FOLDER:
 		executeTemplate(w, "folder.html", renderInfo)
 	}
@@ -449,7 +470,12 @@ func editFile(w http.ResponseWriter, r *http.Request, owner string) {
 		http.Error(w, "You are trying to edit a folder instead of a file!", http.StatusBadRequest)
 		return
 	}
-	err = FILES.Edit(owner, filepath, r.FormValue("filecontents"))
+	decoded, err := base64.StdEncoding.DecodeString(r.FormValue("filecontents"))
+	if err != nil {
+		http.Error(w, "Improper base64 file", http.StatusBadRequest)
+		return
+	}
+	err = FILES.Edit(owner, filepath, string(decoded))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -548,7 +574,7 @@ func render(w http.ResponseWriter, r *http.Request, owner string) {
 		http.Error(w, "You cannot render a folder", http.StatusBadRequest)
 		return
 	}
-	if pathChunks[0] == "plain" {
+	if pathChunks[0] == "plain" || http.DetectContentType([]byte(file.FileContents))[:len("text")] != "text" {
 		http.ServeContent(w, r, filename, time.Now(), strings.NewReader(file.FileContents))
 		return
 	}

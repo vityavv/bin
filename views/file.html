@@ -39,7 +39,7 @@ editor.setKeyboardHandler("ace/keyboard/vim")
 const form = document.getElementById("form")
 function submitForm(e) {
 	if (e) e.preventDefault()
-	document.getElementById("filecontents").innerHTML = editor.getValue()
+	document.getElementById("filecontents").innerHTML = btoa(editor.getValue())
 	form.submit()
 }
 ace.config.loadModule("ace/keyboard/vim", m => {
@@ -59,6 +59,8 @@ document.getElementById("render").addEventListener("click", () => {
 	const option = document.getElementById("renderfunc")
 	location.pathname = `/render/${option.options[option.selectedIndex].value}/${location.pathname.substring(6)}`
 })
+
+const PAGETYPE = "TEXT"
 </script>
 		<script src="/userScript.js"></script>
 	</body>
