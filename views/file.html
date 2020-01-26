@@ -15,7 +15,7 @@
 		<main>
 			<form action="/edit/{{.File.Path}}" method="POST" id="form">
 				<input name="title" id="title" value="{{base .File.Path}}">
-				<div id="editor">{{.File.FileContents}}</div>
+				<div id="editor">{{toString .File.FileContents}}</div>
 				<textarea hidden id="filecontents" name="filecontents"></textarea>
 				<button type="submit" class="button">Save</button>
 			</form>

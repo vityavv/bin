@@ -16,7 +16,8 @@ type FileInfo struct {
 	Filetype Filetype
 }
 type File struct {
-	Path, FileContents, Owner string
+	Path, Owner string
+	FileContents []byte
 	Filetype Filetype
 	FolderContents []FileInfo
 }
@@ -24,7 +25,7 @@ type File struct {
 type Files interface {
 	Init(string) error // Currently location, may change to adapt to new methods
 	Get(string, string) (File, error) //Owner, Path
-	Edit(string, string, string) (error) //Owner, Path, Contents
+	Edit(string, string, []byte) (error) //Owner, Path, Contents
 	Rename(string, string, string) (error) //Owner, Path, newPath
 	Remove(string, string) error //Owner, Path
 	New(string, string) (File, error) //Owner, Path
@@ -75,14 +76,14 @@ func (f FSFiles) Get(owner, path string) (File, error) {
 		if err != nil {
 			return File{}, err
 		}
-		file.FileContents = string(contents)
+		file.FileContents = contents
 	}
 	return file, nil
 }
 
-func (f FSFiles) Edit(owner, path, contents string) error {
+func (f FSFiles) Edit(owner, path string, contents []byte) error {
 	//should I put in some more checks here? I think this is alright
-	return ioutil.WriteFile(f.Location + "/" + owner + "/" + path, []byte(contents), 0644)
+	return ioutil.WriteFile(f.Location + "/" + owner + "/" + path, contents, 0644)
 }
 
 func (f FSFiles) Rename(owner, oldpath, newpath string) error {
@@ -94,7 +95,7 @@ func (f FSFiles) Remove(owner, path string) error {
 }
 
 func (f FSFiles) New(owner, path string) (File, error) {
-	err := f.Edit(owner, path, "")
+	err := f.Edit(owner, path, []byte{})
 	if err != nil {
 		return File{}, err
 	}
@@ -102,7 +103,7 @@ func (f FSFiles) New(owner, path string) (File, error) {
 		Owner: owner,
 		Path: path,
 		Filetype: FILE,
-		FileContents: "",
+		FileContents: []byte{},
 	}, nil
 }
 

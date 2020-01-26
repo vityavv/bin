@@ -11,10 +11,10 @@ type Rendered struct{
 	Name string
 	Rendered template.HTML
 }
-type RenderFunc func(string) (template.HTML, error) // Text content, output, err
+type RenderFunc func([]byte) (template.HTML, error) // Text content, output, err
 var RENDERFUNCS map[string]RenderFunc = map[string]RenderFunc{
-	"markdown": func(input string) (template.HTML, error) {
-		rendered := blackfriday.Run([]byte(input))
+	"markdown": func(input []byte) (template.HTML, error) {
+		rendered := blackfriday.Run(input)
 		return template.HTML(rendered), nil
 	},
 }

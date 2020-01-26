@@ -4,19 +4,34 @@ Basically this is a super-WIP "replacement" for Google Drive. I'd appreciate a b
 
 ## Goals
 
-1. [x] Vim shortcuts in the editor
-	1. [x] Make the escape key work!
-2. [x] Customizable editor (probably goona use Ace for this)
-3. [ ] Render Markdown or even LaTeX
-4. [ ] Move files to a database
-5. [ ] File encryption
-6. [ ] Integrate with Google Drive
+### Editor
+
+1. [x] Vim shortcuts
+2. [x] Image editor
+3. [ ] Spreadsheet editor
+4. [ ] Form editor (export to spreadsheets)
+
+### Files
+
+1. [ ] Move to database
+2. [ ] Encryption
+3. [ ] Google Drive integration
+4. [ ] API
 
 ## How to use
 
-1. `go get github.com/vityavv/bin`
-2. `bin` (I know this is probably a bad name for some)
-3. go to `localhost:8080` in your browser
+1. Install bin by running the command `go get github.com/vityavv/bin`. Make sure you have go installed.
+2. Use the command `bin` (I know this is probably a bad name for some) to run the program (make sure the place where go installs stuff is in your PATH.
+3. Go to `localhost:8080` in your browser to access the site.
+	* You can use a program like NGINX or Apache as a reverse proxy to run bin properly on ports 80 and 443.
 4. Create yourself an account, log in, etc. (I'm trying to make it pretty straightfoward)
-5. A file will be already in your bin called `.style.css`, which you can edit to change the CSS of every page.
-6. Another already created file, `.userScript.js`, will allow you to script the editor (with some pre-put options and functions in place)
+	* A file will be already in your bin called `.style.css`, which you can edit to change the CSS of every page.
+	* Another already created file, `.userScript.js`, will allow you to script the editor (with some pre-put options and functions in place)
+	* Finally, a third file, `.renderStyle.css`, will let you style the rendered text.
+5. Create a new file or new folder by pressing the buttons on the top. Alternatively, upload a file.
+6. Click on a file's name to edit it, or click on a folder's name to enter that folder.
+	* You can press the `Back` button at the top of the screen when in a folder to go up one folder.
+	* You can also rename the folder by editing the text in the folder's title and pressing the `Rename` button.
+7. When editing a file, you can press save to `Save` it (you need to press `Save` when renaming it too), or `Render` to render it with one of the renderers available
+	* To write your own, edit `render.go` (that's all you need to edit). It's pretty straight forward, I think.
+	* To save an image, you need to press the `Save` button, not the `Load` and `Download` buttons on the right.

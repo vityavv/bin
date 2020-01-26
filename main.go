@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"strings"
+	"bytes"
 	"path"
 	"net/url"
 	"time"
@@ -37,20 +38,11 @@ var DEFAULTSTYLE, DEFAULTSCRIPT, DEFAULTRENDEREDSTYLE []byte
 // }}}
 
 // Main: {{{
-func encode(data string) string {
-	return base64.StdEncoding.EncodeToString([]byte(data))
-}
-func decode(data string) string {
-	decoded, err := base64.StdEncoding.DecodeString(data)
-	if err != nil {
-		return err.Error()
-	}
-	return string(decoded)
-}
 func main() {
 	templates = template.Must(templates.Funcs(template.FuncMap{
 		"base": path.Base, "dir": path.Dir,
-		"base64encode": encode, "base64decode": decode,
+		"base64encode": base64.StdEncoding.EncodeToString,
+		"toString": func(x []byte) string {return string(x)},
 	}).ParseGlob("./views/*.html"))
 	DBinit()
 
@@ -335,7 +327,7 @@ func upload(w http.ResponseWriter, r *http.Request, owner string) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
-	FILES.Edit(owner, fullfilepath, string(filecontents))
+	FILES.Edit(owner, fullfilepath, filecontents)
 	http.Redirect(w, r, "/file/" + filepath, http.StatusFound)
 }
 //consider changing to just string & chekcing if it is empty
@@ -372,7 +364,7 @@ func serveCss(w http.ResponseWriter, r *http.Request, owner string) {
 		if err != nil || styleFile.Filetype == FOLDER {
 			style = DEFAULTSTYLE
 		} else {
-			style = []byte(styleFile.FileContents)
+			style = styleFile.FileContents
 		}
 	}
 	w.Header().Set("Content-Type", "text/css")
@@ -390,7 +382,7 @@ func serveJs(w http.ResponseWriter, r *http.Request, owner string) {
 	if err != nil || jsFile.Filetype == FOLDER {
 		script = DEFAULTSCRIPT
 	} else {
-		script = []byte(jsFile.FileContents)
+		script = jsFile.FileContents
 	}
 	w.Header().Set("Content-Type", "text/javascript")
 	w.WriteHeader(200)
@@ -426,7 +418,7 @@ func showFile(w http.ResponseWriter, r *http.Request, owner string) {
 	renderInfo := RenderInfo{File: file, RenderFuncs: renderFuncs}
 	switch file.Filetype {
 	case FILE:
-		fileMIME := http.DetectContentType([]byte(file.FileContents))
+		fileMIME := http.DetectContentType(file.FileContents)
 		renderInfo.MIME = fileMIME
 		if fileMIME[:len("image")] == "image" {
 			executeTemplate(w, "image.html", renderInfo)
@@ -475,7 +467,7 @@ func editFile(w http.ResponseWriter, r *http.Request, owner string) {
 		http.Error(w, "Improper base64 file", http.StatusBadRequest)
 		return
 	}
-	err = FILES.Edit(owner, filepath, string(decoded))
+	err = FILES.Edit(owner, filepath, decoded)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -574,8 +566,8 @@ func render(w http.ResponseWriter, r *http.Request, owner string) {
 		http.Error(w, "You cannot render a folder", http.StatusBadRequest)
 		return
 	}
-	if pathChunks[0] == "plain" || http.DetectContentType([]byte(file.FileContents))[:len("text")] != "text" {
-		http.ServeContent(w, r, filename, time.Now(), strings.NewReader(file.FileContents))
+	if pathChunks[0] == "plain" || http.DetectContentType(file.FileContents)[:len("text")] != "text" {
+		http.ServeContent(w, r, filename, time.Now(), bytes.NewReader(file.FileContents))
 		return
 	}
 	renderedText, err := rednerer(file.FileContents)
@@ -601,7 +593,7 @@ func serveRendered(w http.ResponseWriter, r *http.Request) {
 		if err != nil || styleFile.Filetype == FOLDER {
 			style = DEFAULTRENDEREDSTYLE
 		} else {
-			style = []byte(styleFile.FileContents)
+			style = styleFile.FileContents
 		}
 	}
 	w.Header().Set("Content-Type", "text/css")
