@@ -2,6 +2,13 @@
 
 Basically this is a super-WIP "replacement" for Google Drive. I'd appreciate a better name. I'm making this because I keep trying to use Vim shortcuts in google drive and it is not very great.
 
+## Features
+
+1. Customizable text editor (Ace) with support for Vim/Emacs keybindings, different colorschemes, fonts, and many features of its own.
+2. Everything is customizable, including the style of the editor, the style of the pages, and the style of what comes out of the editor (what you render).
+3. Image editor using Toast UI!
+4. PRESENTATIONS, using the built-in `sent` rendering method: modeled after [suckless' sent](https://tools.suckless.org/sent/).
+
 ## Goals
 
 ### Editor
