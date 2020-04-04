@@ -23,7 +23,7 @@
 		</header>
 		<h2>
 			Folder: {{dir .File.Path}}/
-			<form action="/renameFolder/{{.File.Path}}" method="post">
+			<form action="/rename/{{.File.Path}}" method="post">
 				<input type="text" name="name" value="{{base .File.Path}}">
 				<button class="button" type="submit">Rename</button>
 			</form>

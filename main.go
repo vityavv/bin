@@ -70,7 +70,7 @@ func main() {
 	http.HandleFunc("/file/", reqAuth(showFile))
 	http.HandleFunc("/edit/", reqAuth(editFile))
 	http.HandleFunc("/upload/", reqAuth(upload))
-	http.HandleFunc("/renameFolder/", reqAuth(renameFolder))
+	http.HandleFunc("/rename/", reqAuth(rename))
 	http.HandleFunc("/remove/", reqAuth(remove))
 	http.HandleFunc("/render/", reqAuth(render))
 
@@ -484,7 +484,7 @@ func editFile(w http.ResponseWriter, r *http.Request, owner string) {
 	//TODO: actual content indicator. THis is temporary to keep them on the page while we don't use JS
 	http.Redirect(w, r, "/file/" + filepath + "#", http.StatusSeeOther)
 }
-func renameFolder(w http.ResponseWriter, r *http.Request, owner string) {
+func rename(w http.ResponseWriter, r *http.Request, owner string) {
 	if r.Method != "POST" {
 		http.Redirect(w, r, "/", http.StatusFound)
 	}
@@ -497,7 +497,7 @@ func renameFolder(w http.ResponseWriter, r *http.Request, owner string) {
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
-	filepath, err := getFilePathFromURL(r.URL, "/renameFolder/")
+	filepath, err := getFilePathFromURL(r.URL, "/rename/")
 	if err != nil {
 		http.Error(w, "Bad Filename:" + err.Error(), http.StatusBadRequest)
 		return
@@ -505,16 +505,12 @@ func renameFolder(w http.ResponseWriter, r *http.Request, owner string) {
 	if filepath == "" {
 		http.Redirect(w, r, "/", http.StatusFound)
 	}
-	folder, err := FILES.Get(owner, filepath)
+	file, err := FILES.Get(owner, filepath)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if folder.Filetype != FOLDER {
-		http.Error(w, "You are trying to rename a file instead of a folder. To rename a file, open the file, change its title, and press \"Save\"", http.StatusBadRequest)
-		return
-	}
-	if r.FormValue("name") != "" && r.FormValue("name") != path.Base(folder.Path) {
+	if r.FormValue("name") != "" && r.FormValue("name") != path.Base(file.Path) {
 		err = FILES.Rename(owner, filepath, path.Dir(filepath) + "/" + r.FormValue("name"))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -523,7 +519,7 @@ func renameFolder(w http.ResponseWriter, r *http.Request, owner string) {
 		http.Redirect(w, r, "/file/" + path.Dir(filepath) + "/" + r.FormValue("name") + "#", http.StatusSeeOther)
 		return
 	}
-	http.Error(w, "No folder name provided or folder name has not changed", http.StatusBadRequest)
+	http.Error(w, "No file name provided or file name has not changed", http.StatusBadRequest)
 }
 
 func remove(w http.ResponseWriter, r *http.Request, owner string) {
