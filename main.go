@@ -4,6 +4,7 @@ package main
 import (
 	"bytes"
 	"encoding/base64"
+	"fmt"
 	"github.com/gorilla/sessions"
 	"html/template"
 	"io/ioutil"
@@ -62,7 +63,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	http.HandleFunc("/login", login)
+	http.HandleFunc("/login", reqPost(login))
 	http.HandleFunc("/logout", logout)
 	http.HandleFunc("/newUser", newUser)
 
@@ -73,10 +74,14 @@ func main() {
 	http.HandleFunc("/userScript.js", reqAuth(serveJs))
 	http.HandleFunc("/rendered.css", serveRendered)
 	http.HandleFunc("/file/", reqAuth(showFile))
-	http.HandleFunc("/edit/", reqAuth(editFile))
-	http.HandleFunc("/upload/", reqAuth(upload))
-	http.HandleFunc("/rename/", reqAuth(rename))
+
+	http.HandleFunc("/folderList", reqAuth(folderList))
+	http.HandleFunc("/edit/", reqPost(reqAuth(editFile)))
+	http.HandleFunc("/upload/", reqPost(reqAuth(upload)))
+	http.HandleFunc("/rename/", reqPost(reqAuth(rename)))
 	http.HandleFunc("/remove/", reqAuth(remove))
+	http.HandleFunc("/move/", reqPost(reqAuth(move)))
+
 	http.HandleFunc("/render/", reqAuth(render))
 
 	fs := http.FileServer(http.Dir("./static"))
@@ -84,6 +89,16 @@ func main() {
 
 	http.HandleFunc("/", mainHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+func reqPost(handler func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			http.Redirect(w, r, "/", http.StatusFound)
+			return
+		}
+		handler(w, r)
+	}
 }
 
 func mainHandler(w http.ResponseWriter, r *http.Request) {
@@ -167,9 +182,6 @@ func logout(w http.ResponseWriter, r *http.Request) {
 func login(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/login" {
 		http.NotFound(w, r)
-	}
-	if r.Method != "POST" {
-		http.Redirect(w, r, "/", http.StatusFound)
 	}
 	username, err := authUser(w, r)
 	if username != "" {
@@ -319,9 +331,6 @@ func newFolder(w http.ResponseWriter, r *http.Request, owner string) {
 	http.Redirect(w, r, "/file/"+folder.Path, http.StatusFound)
 }
 func upload(w http.ResponseWriter, r *http.Request, owner string) {
-	if r.Method != "POST" {
-		http.Redirect(w, r, "/", http.StatusFound)
-	}
 	// one gibibyte upload limit
 	r.ParseMultipartForm(2 << 30)
 	file, info, err := r.FormFile("upload")
@@ -456,11 +465,8 @@ func showFile(w http.ResponseWriter, r *http.Request, owner string) {
 
 // }}}
 
-// Edit/rename/remove files: {{{
+// Edit/rename/(re)move files: {{{
 func editFile(w http.ResponseWriter, r *http.Request, owner string) {
-	if r.Method != "POST" {
-		http.Redirect(w, r, "/", http.StatusFound)
-	}
 	valid, errStr := validate(path.Base(r.FormValue("title")))
 	if !valid {
 		http.Error(w, errStr, http.StatusBadRequest)
@@ -510,9 +516,6 @@ func editFile(w http.ResponseWriter, r *http.Request, owner string) {
 	http.Redirect(w, r, "/file/"+filepath+"#", http.StatusSeeOther)
 }
 func rename(w http.ResponseWriter, r *http.Request, owner string) {
-	if r.Method != "POST" {
-		http.Redirect(w, r, "/", http.StatusFound)
-	}
 	valid, errStr := validate(path.Base(r.FormValue("name")))
 	if !valid {
 		http.Error(w, errStr, http.StatusBadRequest)
@@ -547,6 +550,45 @@ func rename(w http.ResponseWriter, r *http.Request, owner string) {
 	http.Error(w, "No file name provided or file name has not changed", http.StatusBadRequest)
 }
 
+func move(w http.ResponseWriter, r *http.Request, owner string) {
+	if owner == "" {
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+	filepath, err := getFilePathFromURL(r.URL, "/move/")
+	if err != nil {
+		http.Error(w, "Bad Filename:"+err.Error(), http.StatusBadRequest)
+		return
+	}
+	if filepath == "" {
+		http.Redirect(w, r, "/", http.StatusFound)
+	}
+	file, err := FILES.Get(owner, filepath)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if r.FormValue("folder") != "" && r.FormValue("folder") != path.Dir(file.Path) {
+		folder, err := FILES.Get(owner, r.FormValue("folder"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		if folder.Filetype != FOLDER {
+			http.Error(w, "New location is not a folder", http.StatusBadRequest)
+			return
+		}
+		err = FILES.Rename(owner, filepath, r.FormValue("folder")+"/"+path.Base(filepath))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		http.Redirect(w, r, "/file"+r.FormValue("folder"), http.StatusSeeOther)
+		return
+	}
+	http.Error(w, "No new folder has been provided or the folder has not changed", http.StatusBadRequest)
+}
+
 func remove(w http.ResponseWriter, r *http.Request, owner string) {
 	filename, err := getFilePathFromURL(r.URL, "/remove/")
 	if err != nil {
@@ -559,6 +601,15 @@ func remove(w http.ResponseWriter, r *http.Request, owner string) {
 		return
 	}
 	http.Redirect(w, r, "/file/"+path.Dir(filename)+"#", http.StatusFound)
+}
+
+func folderList(w http.ResponseWriter, r *http.Request, owner string) {
+	folderList, err := FILES.FolderList(owner)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	fmt.Fprint(w, strings.Join(folderList, "\n"))
 }
 
 // }}}

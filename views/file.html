@@ -57,6 +57,9 @@ function submitForm(e) {
 			res.text().then(editorError)
 		} else {
 			editorSuccess("Saved.")
+			if (res.redirected) {
+				window.location.href = res.url
+			}
 		}
 	}).catch(editorError)
 }

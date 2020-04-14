@@ -113,9 +113,9 @@ input[type="file"] {
 h2 {
 	margin: 10px 0;
 }
-li > a {
+li a {
   color: inherit;
 }
-li > a:hover {
+li a:hover {
   text-decoration: none;
 }

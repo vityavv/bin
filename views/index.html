@@ -4,7 +4,7 @@
 		<link rel="stylesheet" type="text/css" href="/css.css"/>
 		<title>Bin</title>
 	</head>
-	<body>
+	<body data-path="/">
 		{{if .Logged}}
 			<header>
 				<b>Bin</b>
@@ -24,9 +24,12 @@
 			<h2>My Bin</h2>
 			<ul>
 				{{range .File.FolderContents}}
-					<li><a href="javascript:;" class="remove" data-filename="{{base .Path}}">❌</a> {{if eq .Filetype 0}}📄{{else}}📁{{end}}<a href="/file/{{.Path}}">{{.Name}}</a></li>
+					<li><a href="javascript:;" class="remove" data-filename="{{base .Path}}">❌</a>
+						<a href="javascript:;" class="move" data-filename="{{base .Path}}">Move</a>
+						{{if eq .Filetype 0}}📄{{else}}📁{{end}}<a href="/file{{.Path}}">{{.Name}}</a></li>
 				{{end}}
 			</ul>
+			<script src="/static/folderScript.js"></script>
 		{{else}}
 			<h2>Bin - Log In</h2>
 			<a href="/newUser" class="button">New Account</a><br><br>
@@ -37,20 +40,6 @@
 				<button type="submit" class="button">Log In</button>
 			</form>
 		{{end}}
-<script>
-document.getElementById("newFolder").addEventListener("click", () => {
-	window.location = window.location.origin + "/newFolder/" + encodeURIComponent(prompt("Enter a name for the new folder:"))
-})
-Array.from(document.getElementsByClassName("remove")).forEach(a => {
-	a.addEventListener("click", e => {
-		if (confirm(`Are you sure you want to delete ${a.dataset.filename}?`)) window.location.href = window.location.origin + "/remove/" + encodeURIComponent(a.dataset.filename)
-	})
-})
-
-document.querySelector("input#upload").addEventListener("change", e => {
-	document.querySelector("#file_chosen").innerText = "File: " + e.srcElement.files[0].name
-})
-</script>
 	</body>
 </html>
 
