@@ -45,7 +45,9 @@ func main() {
 		"base": path.Base, "dir": path.Dir,
 		"base64encode": base64.StdEncoding.EncodeToString,
 		"toString":     func(x []byte) string { return string(x) },
-	}).ParseGlob("./views/*.html"))
+	}).ParseGlob("./*/*.html"))
+	// This glob pattern is imperfect, but for some reason go doesn't support ./{views,renderTemplates}/*.html
+	// see: https://golang.org/pkg/path/filepath/#Match
 	DBinit()
 
 	key, err := ioutil.ReadFile("key")
@@ -623,7 +625,7 @@ func folderList(w http.ResponseWriter, r *http.Request, owner string) {
 // Render files: {{{
 func render(w http.ResponseWriter, r *http.Request, owner string) {
 	pathChunks := strings.Split(r.URL.Path[len("/render/"):], "/")
-	rednerer, exists := RENDERFUNCS[pathChunks[0]]
+	renderer, exists := RENDERFUNCS[pathChunks[0]]
 	if !exists && pathChunks[0] != "plain" {
 		http.Error(w, "Renderer not found", http.StatusNotFound)
 		return
@@ -649,12 +651,15 @@ func render(w http.ResponseWriter, r *http.Request, owner string) {
 		http.ServeContent(w, r, filename, time.Now(), bytes.NewReader(file.FileContents))
 		return
 	}
-	renderedText, err := rednerer(file.FileContents)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	executeTemplate(w, "rendered.html", Rendered{filename, renderedText, pathChunks[0]})
+	/*
+		renderedText, err := rednerer(file.FileContents)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		executeTemplate(w, "rendered.html", Rendered{filename, renderedText, pathChunks[0]})
+	*/
+	renderer(filename, file.FileContents, w)
 }
 
 func serveRendered(w http.ResponseWriter, r *http.Request) {
