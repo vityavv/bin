@@ -12,6 +12,7 @@
 			</form>
 			<a href="/file/{{dir .File.Path}}" class="button">Back</a>
 			<a href="/new/{{.File.Path}}" class="button">New file</a>
+			<a href="/new/{{.File.Path}}/Untitled.treb" class="button">New spreadsheet</a>
 			<button class="button" id="newFolder">New folder</button>
 			<span class="divider"></span>
 			<form action="/upload/{{.File.Path}}" method="post" enctype="multipart/form-data" id="upload_form">

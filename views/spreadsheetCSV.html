@@ -2,6 +2,7 @@
 <html>
 	<head>
 		<link rel="stylesheet" type="text/css" href="/css.css"/>
+		<script src='https://treb.app/treb/current/embedded-treb-bundle.js'></script>
 		<title>Bin - {{base .File.Path}}</title>
 	</head>
 	<body class="editorbody">
@@ -15,7 +16,7 @@
 		<main>
 			<form action="/edit/{{.File.Path}}" method="POST" id="form">
 				<input name="title" id="title" value="{{base .File.Path}}">
-				<div id="editor">{{toString .File.FileContents}}</div>
+				<div id="editor" data-treb="" data-options="load=init"></div>
 				<textarea hidden id="filecontents" name="filecontents"></textarea>
 				<button type="submit" class="button">Save</button>
 			</form>
@@ -30,58 +31,44 @@
 				</select>
 			</div>
 		</footer>
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.6/ace.js"></script>
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.6/ext-modelist.js"></script>
 		<script src="https://cdn.jsdelivr.net/gh/dankogai/js-base64@2.5.2/base64.min.js"></script> <!-- required because JS's base64 doesn't like unicode -->
 <script>
-const editor = ace.edit("editor")
-editor.setKeyboardHandler("ace/keyboard/vim")
-
-function editorError(str) {
-	editor.state.cm.openNotification(`<span style="color: red;">${str}</span>`, {bottom: true, duration: 5000})
-}
-function editorSuccess(str) {
-	editor.state.cm.openNotification(`<span>${str}</span>`, {bottom: true, duration: 5000})
+let sheet
+function init() {
+	sheet = document.querySelector("#editor")._spreadsheet
+	sheet.LoadCSV("{{toString .File.FileContents}}")
 }
 
 const form = document.getElementById("form")
 function submitForm(e) {
 	if (e) e.preventDefault()
 	const formData = new FormData(form)
-	formData.set("filecontents", Base64.encode(editor.getValue()))
+	formData.set("filecontents", Base64.encode(sheet.ExportDelimited()))
 	fetch("/edit/{{.File.Path}}", {
 		method: "POST",
 		body: formData
 	}).then(res => {
 		if (!res.ok) {
-			res.text().then(editorError)
+			res.text().then(alert)
 		} else {
-			editorSuccess("Saved.")
+			console.log("Success")
 			if (res.redirected && window.location.href != res.url) {
 				window.location.href = res.url
 			}
 		}
-	}).catch(editorError)
+	}).catch(e => {
+		console.log("Error")
+		console.log(e)
+	})
 }
-ace.config.loadModule("ace/keyboard/vim", m => {
-	m.CodeMirror.Vim.defineEx("write", "w", () => submitForm())
-})
 form.addEventListener("submit", submitForm)
-
-const editorElement = document.getElementById("editor")
-editorElement.addEventListener("keyup", e => {
-	if (e.key === "Escape") {
-		e.preventDefault()
-	}
-})
-editorElement.focus()
 
 document.getElementById("render").addEventListener("click", () => {
 	const option = document.getElementById("renderfunc")
 	location.pathname = `/render/${option.options[option.selectedIndex].value}/${location.pathname.substring(6)}`
 })
 
-const PAGETYPE = "TEXT"
+const PAGETYPE = "spreadsheet"
 </script>
 		<script src="/userScript.js"></script>
 	</body>

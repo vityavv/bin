@@ -455,6 +455,12 @@ func showFile(w http.ResponseWriter, r *http.Request, owner string) {
 		renderInfo.MIME = fileMIME
 		if fileMIME[:len("image")] == "image" {
 			executeTemplate(w, "image.html", renderInfo)
+		} else if path[len(path)-len("treb"):] == "treb" {
+			executeTemplate(w, "spreadsheet.html", renderInfo)
+		} else if path[len(path)-len("csv"):] == "csv" {
+			executeTemplate(w, "spreadsheetCSV.html", renderInfo)
+			//} else if path[len(path)-len("xlsx"):] == "xlsx" {
+			//executeTemplate(w, "spreadsheetXLSX.html", renderInfo) //TODO: figure this out? no clue why I get error in console...
 		} else {
 			executeTemplate(w, "file.html", renderInfo)
 		}

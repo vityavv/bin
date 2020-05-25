@@ -8,6 +8,7 @@ Basically this is a super-WIP "replacement" for Google Drive. I'd appreciate a b
 2. Everything is customizable, including the style of the editor, the style of the pages, and the style of what comes out of the editor (what you render).
 3. Image editor using Toast UI!
 4. PRESENTATIONS, using the built-in `sent` rendering method: modeled after [suckless' sent](https://tools.suckless.org/sent/).
+5. Spreadsheets, using [treb](https://treb.app/). Can be edited with treb's file format or CSV.
 
 ## Goals
 
@@ -15,7 +16,7 @@ Basically this is a super-WIP "replacement" for Google Drive. I'd appreciate a b
 
 1. [x] Vim shortcuts
 2. [x] Image editor
-3. [ ] Spreadsheet editor
+3. [x] Spreadsheet editor
 4. [ ] Form editor (export to spreadsheets)
 
 ### Files
